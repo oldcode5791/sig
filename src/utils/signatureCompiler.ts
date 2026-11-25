@@ -25,11 +25,13 @@ export interface SignatureData {
   website: string;
   address: string;
   abn: string;
+  taxLabel: string;
   avatarUrl: string;
   avatarWidth: number;
   avatarShape: AvatarShape;
   bannerUrl: string;
   bannerLink: string;
+  bannerAlt: string;
   linkedinUrl: string;
   githubUrl: string;
   xUrl: string;
@@ -58,11 +60,13 @@ export const DEFAULT_SIGNATURE: SignatureData = {
   website: 'https://apps.the-lal.net',
   address: 'Sector 001, Earth Orbit / La Barre, France',
   abn: '',
+  taxLabel: 'ABN',
   avatarUrl: '',
   avatarWidth: 84,
   avatarShape: 'rounded',
   bannerUrl: '',
   bannerLink: '',
+  bannerAlt: 'Promotional banner',
   linkedinUrl: '',
   githubUrl: '',
   xUrl: '',
@@ -78,16 +82,22 @@ export const DEFAULT_SIGNATURE: SignatureData = {
 };
 
 /**
+ * Shared avatar width bounds so the slider, tooltip and compiler all agree.
+ */
+export const AVATAR_MIN_WIDTH = 48;
+export const AVATAR_MAX_WIDTH = 150;
+
+/**
  * Escapes HTML special characters to prevent XSS injection and malformed markup
- * when compiling user-supplied text into raw HTML table cells.
+ * when compiling user-supplied text into raw HTML table cells. Apostrophes are
+ * intentionally left as-is because every attribute emitted below is double-quoted.
  */
 function esc(str: string): string {
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    .replace(/"/g, '&quot;');
 }
 
 /**
@@ -99,6 +109,18 @@ function normalizeUrl(url: string): string {
   if (!trimmed) return '';
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   return `https://${trimmed}`;
+}
+
+/**
+ * Normalises an image source: inline `data:image/` URIs are passed through
+ * untouched, while hosted paths are upgraded to an absolute https:// URL so a
+ * scheme-less value cannot resolve to a broken relative path inside an email.
+ */
+function normalizeImageSrc(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  if (/^data:image\//i.test(trimmed)) return trimmed;
+  return normalizeUrl(trimmed);
 }
 
 /**
@@ -154,20 +176,20 @@ export function compileSignatureHtml(data: SignatureData, blockImages = false): 
 
   // Combine Direct/Office Phone and Mobile onto a single compact pipe-delimited row
   const phoneItems: string[] = [];
-  if (data.phone.trim()) {
-    const p = esc(data.phone.trim());
-    const tel = p.replace(/[^+\d]/g, '');
-    phoneItems.push(
-      `<strong style="color:${accent};font-weight:700;">P:</strong> <a href="tel:${tel}" style="color:${text};text-decoration:none;">${p}</a>`
-    );
-  }
-  if (data.mobile.trim()) {
-    const m = esc(data.mobile.trim());
-    const tel = m.replace(/[^+\d]/g, '');
-    phoneItems.push(
-      `<strong style="color:${accent};font-weight:700;">M:</strong> <a href="tel:${tel}" style="color:${text};text-decoration:none;">${m}</a>`
-    );
-  }
+  // Only create a tap-to-call link when the value actually contains digits,
+  // otherwise the number is shown as plain text (e.g. "Subspace Channel 04").
+  const phoneEntry = (label: string, raw: string) => {
+    const value = esc(raw.trim());
+    const tel = value.replace(/[^+\d]/g, '');
+    const prefix = `<strong style="color:${accent};font-weight:700;">${label}:</strong> `;
+    // Require a plausible number of digits before making a tap-to-call link, so
+    // labels like "Subspace Channel 04" are shown as plain text.
+    return tel.replace(/\D/g, '').length >= 7
+      ? `${prefix}<a href="tel:${tel}" style="color:${text};text-decoration:none;">${value}</a>`
+      : `${prefix}${value}`;
+  };
+  if (data.phone.trim()) phoneItems.push(phoneEntry('P', data.phone));
+  if (data.mobile.trim()) phoneItems.push(phoneEntry('M', data.mobile));
   if (phoneItems.length > 0) {
     contactRows.push(
       `<tr><td style="padding:2px 0;font-family:${font};font-size:13px;line-height:18px;color:${muted};">${phoneItems.join(' &nbsp;|&nbsp; ')}</td></tr>`
@@ -190,45 +212,52 @@ export function compileSignatureHtml(data: SignatureData, blockImages = false): 
     );
   }
 
-  // Australian Business Number (ABN) row when provided
+  // Business/tax identifier row when provided (label is user-editable)
   if (data.abn.trim()) {
     contactRows.push(
-      `<tr><td style="padding:2px 0;font-family:${font};font-size:11px;line-height:16px;color:${muted};">ABN: ${esc(data.abn.trim())}</td></tr>`
+      `<tr><td style="padding:2px 0;font-family:${font};font-size:11px;line-height:16px;color:${muted};">${esc(data.taxLabel.trim() || 'ABN')}: ${esc(data.abn.trim())}</td></tr>`
     );
   }
 
-  // Build text-based pill badges for social links (immune to external icon blocking)
-  const socialLinks: string[] = [];
+  // Build text-based pill badges for social links (immune to external icon blocking).
+  // Rendered as table cells with bgcolor padding because Outlook's Word engine
+  // ignores border-radius and padding on inline-block anchors.
+  const socialBadges: { href: string; label: string; bg: string }[] = [];
   if (data.linkedinUrl.trim()) {
-    socialLinks.push(
-      `<a href="${esc(normalizeUrl(data.linkedinUrl))}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:3px 8px;background-color:${accent};color:#ffffff;font-family:${font};font-size:11px;font-weight:700;text-decoration:none;border-radius:4px;">LinkedIn</a>`
-    );
+    socialBadges.push({ href: normalizeUrl(data.linkedinUrl), label: 'LinkedIn', bg: accent });
   }
   if (data.githubUrl.trim()) {
-    socialLinks.push(
-      `<a href="${esc(normalizeUrl(data.githubUrl))}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:3px 8px;background-color:#1e293b;color:#ffffff;font-family:${font};font-size:11px;font-weight:700;text-decoration:none;border-radius:4px;">GitHub</a>`
-    );
+    socialBadges.push({ href: normalizeUrl(data.githubUrl), label: 'GitHub', bg: '#1e293b' });
   }
   if (data.xUrl.trim()) {
-    socialLinks.push(
-      `<a href="${esc(normalizeUrl(data.xUrl))}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:3px 8px;background-color:#0f172a;color:#ffffff;font-family:${font};font-size:11px;font-weight:700;text-decoration:none;border-radius:4px;">X</a>`
-    );
+    socialBadges.push({ href: normalizeUrl(data.xUrl), label: 'X', bg: '#0f172a' });
   }
 
   const socialHtml =
-    socialLinks.length > 0
-      ? `<tr><td style="padding-top:8px;">${socialLinks.join('&nbsp;')}</td></tr>`
+    socialBadges.length > 0
+      ? `<tr><td style="padding-top:8px;"><table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;"><tr>${socialBadges
+          .map(
+            (b) =>
+              `<td bgcolor="${b.bg}" style="background-color:${b.bg};padding:3px 8px;font-family:${font};font-size:11px;font-weight:700;line-height:14px;"><a href="${esc(
+                b.href
+              )}" target="_blank" rel="noopener noreferrer" style="color:#ffffff;text-decoration:none;font-family:${font};font-size:11px;font-weight:700;">${
+                b.label
+              }</a></td>`
+          )
+          .join('<td width="6" style="font-size:1px;line-height:1px;">&nbsp;</td>')}</tr></table></td></tr>`
       : '';
 
-  // Clamp avatar width within safe bounds and render either real <img> or blocked-image wireframe
+  // Clamp avatar width within the shared safe bounds and render either the real
+  // <img> or a dashed wireframe when simulating blocked images.
   const hasAvatar = Boolean(data.avatarUrl.trim());
-  const avatarW = Math.max(48, Math.min(160, data.avatarWidth || 84));
+  const avatarW = Math.max(AVATAR_MIN_WIDTH, Math.min(AVATAR_MAX_WIDTH, data.avatarWidth || 84));
   const radius = getBorderRadius(data.avatarShape, avatarW);
+  const avatarHeightAttr = data.avatarShape === 'circle' ? ` height="${avatarW}"` : '';
 
   const avatarImgHtml = hasAvatar
     ? blockImages
       ? `<div style="width:${avatarW}px;height:${avatarW}px;border:1px dashed #94a3b8;border-radius:${radius};font-family:${font};font-size:10px;color:#64748b;text-align:center;line-height:${avatarW}px;overflow:hidden;">[Image: ${esc(data.companyName || data.fullName)}]</div>`
-      : `<img src="${esc(data.avatarUrl.trim())}" alt="${esc(data.fullName || 'Logo')}" width="${avatarW}" style="display:block;width:${avatarW}px;max-width:${avatarW}px;height:auto;border:0;border-radius:${radius};" />`
+      : `<img src="${esc(normalizeImageSrc(data.avatarUrl))}" alt="${esc(data.fullName || 'Logo')}" width="${avatarW}"${avatarHeightAttr} style="display:block;width:${avatarW}px;max-width:${avatarW}px;height:auto;border:0;border-radius:${radius};" />`
     : '';
 
   // Assemble the inner identity & contact sub-table
@@ -306,7 +335,7 @@ export function compileSignatureHtml(data: SignatureData, blockImages = false): 
       ? (() => {
           const img = blockImages
             ? `<div style="width:420px;max-width:100%;height:70px;border:1px dashed #94a3b8;font-family:${font};font-size:11px;color:#64748b;text-align:center;line-height:70px;">[Promotional Banner Blocked]</div>`
-            : `<img src="${esc(data.bannerUrl.trim())}" alt="Banner" width="420" style="display:block;width:420px;max-width:100%;height:auto;border:0;border-radius:6px;" />`;
+            : `<img src="${esc(normalizeImageSrc(data.bannerUrl))}" alt="${esc(data.bannerAlt.trim() || 'Banner')}" width="420" style="display:block;width:420px;max-width:100%;height:auto;border:0;border-radius:6px;" />`;
           const wrapped = data.bannerLink.trim()
             ? `<a href="${esc(normalizeUrl(data.bannerLink))}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">${img}</a>`
             : img;
@@ -326,4 +355,23 @@ export function compileSignatureHtml(data: SignatureData, blockImages = false): 
   ${bannerHtml}
   ${disclaimerHtml}
 </table>`.trim();
+}
+
+/**
+ * Wraps the compiled table fragment in a complete, standalone HTML document with
+ * an explicit charset, so downloaded or pasted files render non-ASCII characters
+ * (such as em dashes) correctly instead of showing mojibake.
+ */
+export function wrapSignatureDocument(innerHtml: string, title = 'Email Signature'): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)}</title>
+</head>
+<body style="margin:0;padding:16px;">
+${innerHtml}
+</body>
+</html>`;
 }

@@ -5,6 +5,9 @@ import {
   type SignatureLayout,
   type AvatarShape,
   compileSignatureHtml,
+  wrapSignatureDocument,
+  AVATAR_MIN_WIDTH,
+  AVATAR_MAX_WIDTH,
 } from './utils/signatureCompiler';
 
 /**
@@ -266,7 +269,8 @@ export function App() {
    */
   const handleDownloadHtml = () => {
     const slug = (data.fullName || 'signature').toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const blob = new Blob([compiledHtml], { type: 'text/html;charset=utf-8' });
+    const doc = wrapSignatureDocument(compiledHtml, `${data.fullName || 'Email'} Signature`);
+    const blob = new Blob([doc], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -322,7 +326,7 @@ export function App() {
                 </span>
               </h1>
               <p className="text-xs text-slate-400">
-                Bulletproof Outlook &amp; Gmail Table Compiler &bull; 100% Client-Side
+                Outlook &amp; Gmail Table Compiler &bull; 100% Client-Side
               </p>
             </div>
           </div>
@@ -448,7 +452,7 @@ export function App() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div className="sm:col-span-2">
                   <InputField
                     label="Location / Address"
@@ -459,8 +463,15 @@ export function App() {
                   />
                 </div>
                 <InputField
-                  label="ABN (Optional)"
-                  tooltip="Australian Business Number (or tax ID) displayed neatly below your address."
+                  label="Tax ID Label"
+                  tooltip="The label shown before your tax/registration number, e.g. ABN, VAT, or Tax ID."
+                  value={data.taxLabel}
+                  onChange={(v) => updateField('taxLabel', v)}
+                  placeholder="ABN"
+                />
+                <InputField
+                  label="Tax / ABN (Optional)"
+                  tooltip="Your business or tax registration number, displayed neatly below your address. Leave blank to hide."
                   value={data.abn}
                   onChange={(v) => updateField('abn', v)}
                   placeholder="12 345 678 901"
@@ -477,7 +488,7 @@ export function App() {
                   <label className="text-xs font-medium text-slate-300">
                     Table Layout Structure
                   </label>
-                  <InfoTooltip text="Choose how your photo/logo and text are arranged. All three use classic HTML tables that never break in Outlook." />
+                  <InfoTooltip text="Choose how your photo/logo and text are arranged. All three use classic HTML tables that render reliably across Outlook, Gmail and Apple Mail." />
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   {(
@@ -596,12 +607,12 @@ export function App() {
                       <label className="text-xs text-slate-400">
                         Width: <span className="text-slate-200 font-mono">{data.avatarWidth}px</span>
                       </label>
-                      <InfoTooltip text="Controls the display width of your logo or photo in pixels (48px to 150px)." />
+                      <InfoTooltip text={`Controls the display width of your logo or photo in pixels (${AVATAR_MIN_WIDTH}px to ${AVATAR_MAX_WIDTH}px).`} />
                     </div>
                     <input
                       type="range"
-                      min={48}
-                      max={150}
+                      min={AVATAR_MIN_WIDTH}
+                      max={AVATAR_MAX_WIDTH}
                       value={data.avatarWidth}
                       onChange={(e) => updateField('avatarWidth', Number(e.target.value))}
                       title="Drag to resize logo or headshot width"
@@ -714,6 +725,13 @@ export function App() {
                   value={data.bannerLink}
                   onChange={(v) => updateField('bannerLink', v)}
                   placeholder="https://apps.the-lal.net"
+                />
+                <InputField
+                  label="Banner Alt Text"
+                  tooltip="Text shown in place of the banner when images are blocked, and read aloud by screen readers."
+                  value={data.bannerAlt}
+                  onChange={(v) => updateField('bannerAlt', v)}
+                  placeholder="Promotional banner"
                 />
               </div>
 
