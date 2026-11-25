@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useId } from 'react';
 import {
   type SignatureData,
   DEFAULT_SIGNATURE,
@@ -313,7 +313,7 @@ export function App() {
                 Subspace Hail &amp; Signature Studio
                 <span className="inline-flex items-center gap-1 text-[11px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                   Zero Tracking
-                  <InfoTooltip text="Everything runs locally in your browser. Your name, phone number, and images are never uploaded to any server." />
+                  <InfoTooltip placement="bottom" text="Everything runs locally in your browser. Your name, phone number, and images are never uploaded to any server." />
                 </span>
               </h1>
               <p className="text-xs text-slate-400">
@@ -334,17 +334,24 @@ export function App() {
         </div>
       </header>
 
-      {toast && (
-        <div className="fixed bottom-5 right-5 z-50 bg-slate-900 border border-cyan-500/50 text-cyan-200 px-4 py-3 rounded-xl shadow-2xl text-sm max-w-md">
-          {toast}
-        </div>
-      )}
+      <div role="status" aria-live="polite" className="fixed bottom-5 right-5 z-50 max-w-md">
+        {toast && (
+          <div className="bg-slate-900 border border-cyan-500/50 text-cyan-200 px-4 py-3 rounded-xl shadow-2xl text-sm">
+            {toast}
+          </div>
+        )}
+      </div>
 
       {/* Split-Pane Studio Workspace (Left: Controls, Right: Live Preview) */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Editor Tabs & Local Presets */}
         <section className="lg:col-span-5 space-y-5">
-          <div className="grid grid-cols-3 gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl">
+          <div
+            role="tablist"
+            aria-label="Signature editor steps"
+            onKeyDown={handleTabKeyDown}
+            className="grid grid-cols-3 gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl"
+          >
             {(
               [
                 {
@@ -366,6 +373,11 @@ export function App() {
             ).map((tab) => (
               <button
                 key={tab.id}
+                id={`tab-${tab.id}`}
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                aria-controls={`panel-${tab.id}`}
+                tabIndex={activeTab === tab.id ? 0 : -1}
                 onClick={() => setActiveTab(tab.id)}
                 title={tab.tip}
                 className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
@@ -381,7 +393,12 @@ export function App() {
 
           {/* Tab 1: Contact & Role Details */}
           {activeTab === 'details' && (
-            <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div
+              id="panel-details"
+              role="tabpanel"
+              aria-labelledby="tab-details"
+              className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 space-y-4"
+            >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <InputField
                   label="Full Name"
@@ -471,15 +488,20 @@ export function App() {
 
           {/* Tab 2: Table Layout, Typography, Colors & Avatar */}
           {activeTab === 'branding' && (
-            <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div
+              id="panel-branding"
+              role="tabpanel"
+              aria-labelledby="tab-branding"
+              className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 space-y-4"
+            >
               <div>
                 <div className="flex items-center gap-1.5 mb-2">
-                  <label className="text-xs font-medium text-slate-300">
+                  <span id="layout-label" className="text-xs font-medium text-slate-300">
                     Table Layout Structure
-                  </label>
+                  </span>
                   <InfoTooltip text="Choose how your photo/logo and text are arranged. All three use classic HTML tables that render reliably across Outlook, Gmail and Apple Mail." />
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div role="group" aria-labelledby="layout-label" className="grid grid-cols-3 gap-2">
                   {(
                     [
                       {
@@ -502,6 +524,7 @@ export function App() {
                     <button
                       key={item.id}
                       onClick={() => updateField('layout', item.id)}
+                      aria-pressed={data.layout === item.id}
                       title={item.tip}
                       className={`py-2 px-3 rounded-lg border text-xs font-medium cursor-pointer transition-colors ${
                         data.layout === item.id
@@ -518,15 +541,15 @@ export function App() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <div className="flex items-center gap-1.5 mb-1">
-                    <label className="text-xs font-medium text-slate-300">
+                    <label htmlFor="font-stack" className="text-xs font-medium text-slate-300">
                       Email-Safe Font Stack
                     </label>
                     <InfoTooltip text="Web fonts often fail in Outlook and Gmail. These system fonts are pre-installed on Windows, Mac, iOS, and Android." />
                   </div>
                   <select
+                    id="font-stack"
                     value={data.fontFamily}
                     onChange={(e) => updateField('fontFamily', e.target.value)}
-                    title="Select a universal system font supported by all major email apps"
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
                   >
                     {FONT_OPTIONS.map((f) => (
@@ -563,61 +586,59 @@ export function App() {
               <div className="border-t border-slate-800 pt-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <label className="text-xs font-medium text-slate-300">
+                    <label htmlFor="avatar-url" className="text-xs font-medium text-slate-300">
                       Logo or Headshot (Hosted URL or Local File)
                     </label>
                     <InfoTooltip text="Paste a public HTTPS image link (smallest file size) or upload a photo from your device to embed it directly." />
                   </div>
-                  <label
-                    title="Pick a PNG, JPG, or WebP from your device—automatically shrunk to 240px inside your browser"
-                    className="text-xs text-cyan-400 hover:text-cyan-300 cursor-pointer font-medium"
-                  >
+                  <label className="text-xs text-cyan-400 hover:text-cyan-300 cursor-pointer font-medium rounded px-1 focus-within:ring-2 focus-within:ring-cyan-400">
                     + Compress Local Image
                     <input
                       type="file"
                       accept="image/png,image/jpeg,image/webp"
-                      className="hidden"
+                      className="sr-only"
                       onChange={(e) => handleImageUpload(e, 'avatarUrl', 240)}
                     />
                   </label>
                 </div>
                 <input
+                  id="avatar-url"
                   type="text"
                   value={data.avatarUrl}
                   onChange={(e) => updateField('avatarUrl', e.target.value)}
                   placeholder="https://yourdomain.com/logo.png"
-                  title="Direct HTTPS URL to your logo or profile photo (leave blank for text-only)"
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
                 />
 
                 <div className="grid grid-cols-2 gap-3 items-center">
                   <div>
                     <div className="flex items-center gap-1.5 mb-1">
-                      <label className="text-xs text-slate-400">
+                      <label htmlFor="avatar-width" className="text-xs text-slate-400">
                         Width: <span className="text-slate-200 font-mono">{data.avatarWidth}px</span>
                       </label>
                       <InfoTooltip text={`Controls the display width of your logo or photo in pixels (${AVATAR_MIN_WIDTH}px to ${AVATAR_MAX_WIDTH}px).`} />
                     </div>
                     <input
+                      id="avatar-width"
                       type="range"
                       min={AVATAR_MIN_WIDTH}
                       max={AVATAR_MAX_WIDTH}
                       value={data.avatarWidth}
                       onChange={(e) => updateField('avatarWidth', Number(e.target.value))}
-                      title="Drag to resize logo or headshot width"
                       className="w-full accent-cyan-500"
                     />
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5 mb-1">
-                      <label className="text-xs text-slate-400">Corner Shape</label>
+                      <span id="corner-shape-label" className="text-xs text-slate-400">Corner Shape</span>
                       <InfoTooltip text="Rounds the corners of your image into a square, soft-rounded card, or full circle." />
                     </div>
-                    <div className="grid grid-cols-3 gap-1">
+                    <div role="group" aria-labelledby="corner-shape-label" className="grid grid-cols-3 gap-1">
                       {(['square', 'rounded', 'circle'] as AvatarShape[]).map((shape) => (
                         <button
                           key={shape}
                           onClick={() => updateField('avatarShape', shape)}
+                          aria-pressed={data.avatarShape === shape}
                           title={`Set image corners to ${shape}`}
                           className={`py-1.5 rounded text-[11px] capitalize border cursor-pointer ${
                             data.avatarShape === shape
@@ -637,7 +658,12 @@ export function App() {
 
           {/* Tab 3: Quote Block, Social Badges, Promotional Banner & Legal Disclaimer */}
           {activeTab === 'extras' && (
-            <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div
+              id="panel-extras"
+              role="tabpanel"
+              aria-labelledby="tab-extras"
+              className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 space-y-4"
+            >
               <div className="space-y-3">
                 <InputField
                   label="Quote / Motto (Optional)"
@@ -687,15 +713,12 @@ export function App() {
                     </label>
                     <InfoTooltip text="Optional wide graphic at the bottom of your signature for events, awards, or booking links." />
                   </div>
-                  <label
-                    title="Upload a banner image from your device—compressed locally in your browser"
-                    className="text-xs text-cyan-400 hover:text-cyan-300 cursor-pointer font-medium"
-                  >
+                  <label className="text-xs text-cyan-400 hover:text-cyan-300 cursor-pointer font-medium rounded px-1 focus-within:ring-2 focus-within:ring-cyan-400">
                     + Upload Banner
                     <input
                       type="file"
                       accept="image/png,image/jpeg,image/webp"
-                      className="hidden"
+                      className="sr-only"
                       onChange={(e) => handleImageUpload(e, 'bannerUrl', 840)}
                     />
                   </label>
@@ -705,7 +728,7 @@ export function App() {
                   value={data.bannerUrl}
                   onChange={(e) => updateField('bannerUrl', e.target.value)}
                   placeholder="https://yourdomain.com/banner.png"
-                  title="Direct HTTPS URL to your banner image"
+                  aria-label="Banner image URL"
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
                 />
                 <InputField
@@ -726,16 +749,16 @@ export function App() {
 
               <div className="border-t border-slate-800 pt-3">
                 <div className="flex items-center gap-1.5 mb-1">
-                  <label className="text-xs font-medium text-slate-300">
+                  <label htmlFor="disclaimer" className="text-xs font-medium text-slate-300">
                     Confidentiality / Legal Footer
                   </label>
                   <InfoTooltip text="Small-print confidentiality or environmental notice at the bottom. Clear the text box to omit it." />
                 </div>
                 <textarea
+                  id="disclaimer"
                   rows={3}
                   value={data.disclaimer}
                   onChange={(e) => updateField('disclaimer', e.target.value)}
-                  title="Edit or clear the small-print legal footer text"
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
                 />
               </div>
@@ -767,6 +790,7 @@ export function App() {
               <input
                 type="text"
                 value={profileName}
+                aria-label="Profile label"
                 onChange={(e) => setProfileName(e.target.value)}
                 placeholder="Profile label (e.g. Work, Consultant)..."
                 title="Give this signature preset a memorable name before saving"
@@ -800,8 +824,8 @@ export function App() {
                     </button>
                     <button
                       onClick={() => handleDeleteProfile(p.id, p.label)}
-                      className="text-slate-500 hover:text-rose-400 cursor-pointer ml-1"
-                      title={`Delete "${p.label}" preset from browser storage`}
+                      className="text-slate-400 hover:text-rose-400 cursor-pointer ml-1"
+                      aria-label={`Delete "${p.label}" preset`}
                     >
                       &times;
                     </button>
@@ -816,8 +840,18 @@ export function App() {
         <section className="lg:col-span-7 flex flex-col gap-4">
           {/* Simulator Mode & Byte Size Toolbar */}
           <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+            <div
+              role="tablist"
+              aria-label="Output view"
+              onKeyDown={handleTabKeyDown}
+              className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800"
+            >
               <button
+                id="tab-preview"
+                role="tab"
+                aria-selected={outputTab === 'preview'}
+                aria-controls="panel-preview"
+                tabIndex={outputTab === 'preview' ? 0 : -1}
                 onClick={() => setOutputTab('preview')}
                 title="Preview exactly how your signature looks inside a real email message"
                 className={`px-3 py-1.5 rounded-md text-xs font-semibold cursor-pointer ${
@@ -829,6 +863,11 @@ export function App() {
                 Live Email Canvas
               </button>
               <button
+                id="tab-html"
+                role="tab"
+                aria-selected={outputTab === 'html'}
+                aria-controls="panel-html"
+                tabIndex={outputTab === 'html' ? 0 : -1}
                 onClick={() => setOutputTab('html')}
                 title="Inspect the clean, inline-styled HTML table code generated under the hood"
                 className={`px-3 py-1.5 rounded-md text-xs font-semibold cursor-pointer ${
@@ -853,6 +892,8 @@ export function App() {
                   </button>
                   <button
                     onClick={() => setSimulateBlockedImages((v) => !v)}
+                    aria-pressed={simulateBlockedImages}
+                    aria-label="Simulate blocked images"
                     title="Test how your signature degrades when corporate firewalls or Outlook block external images by default"
                     className={`px-3 py-1.5 rounded-lg border text-xs cursor-pointer ${
                       simulateBlockedImages
@@ -893,7 +934,12 @@ export function App() {
 
           {/* Interactive Email Client Viewport or Raw HTML Inspector */}
           {outputTab === 'preview' ? (
-            <div className="rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+            <div
+              id="panel-preview"
+              role="tabpanel"
+              aria-labelledby="tab-preview"
+              className="rounded-2xl border border-slate-800 overflow-hidden shadow-xl"
+            >
               <div className="bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex items-center justify-between text-xs text-slate-400">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-rose-500/70" />
@@ -964,7 +1010,12 @@ export function App() {
               </div>
             </div>
           ) : (
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+            <div
+              id="panel-html"
+              role="tabpanel"
+              aria-labelledby="tab-html"
+              className="bg-slate-900 border border-slate-800 rounded-2xl p-4"
+            >
               <pre className="text-xs font-mono text-cyan-300 overflow-x-auto whitespace-pre-wrap break-all max-h-[380px] leading-relaxed">
                 {compiledHtml}
               </pre>
@@ -1017,22 +1068,109 @@ export function App() {
 }
 
 /**
- * Accessible hover/focus/tap "?" info badge that displays a plain-English tooltip
- * so everyday users immediately understand what each setting does.
+ * Arrow, Home and End navigation for tablists (WAI-ARIA tabs pattern).
+ * Moves focus to the new tab and activates it.
  */
-function InfoTooltip({ text }: { text: string }) {
+function handleTabKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+  const tabs = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+  const current = tabs.indexOf(document.activeElement as HTMLButtonElement);
+  if (current === -1) return;
+  const last = tabs.length - 1;
+  let target: number;
+  switch (e.key) {
+    case 'ArrowRight':
+      target = current === last ? 0 : current + 1;
+      break;
+    case 'ArrowLeft':
+      target = current === 0 ? last : current - 1;
+      break;
+    case 'Home':
+      target = 0;
+      break;
+    case 'End':
+      target = last;
+      break;
+    default:
+      return;
+  }
+  e.preventDefault();
+  tabs[target].focus();
+  tabs[target].click();
+}
+
+/**
+ * Accessible hover/focus/tap "?" info badge that displays a plain-English tooltip
+ * so everyday users immediately understand what each setting does. The tooltip is
+ * linked to the button and (via `id`) to its field, dismissable with Escape, and
+ * nudged sideways so it never overflows the viewport.
+ */
+function InfoTooltip({
+  text,
+  label,
+  id,
+  placement = 'top',
+}: {
+  text: string;
+  label?: string;
+  id?: string;
+  placement?: 'top' | 'bottom';
+}) {
+  const generatedId = useId();
+  const tipId = id ?? generatedId;
+  const wrapRef = useRef<HTMLSpanElement>(null);
+  const tipRef = useRef<HTMLSpanElement>(null);
+  const [shift, setShift] = useState(0);
+  const [dismissed, setDismissed] = useState(false);
+
+  const align = () => {
+    const wrap = wrapRef.current;
+    const tip = tipRef.current;
+    if (!wrap || !tip) return;
+    const rect = wrap.getBoundingClientRect();
+    const center = rect.left + rect.width / 2;
+    const half = tip.offsetWidth / 2;
+    const margin = 8;
+    if (center - half < margin) setShift(margin - (center - half));
+    else if (center + half > window.innerWidth - margin)
+      setShift(window.innerWidth - margin - (center + half));
+    else setShift(0);
+  };
+
   return (
-    <span className="relative inline-flex items-center group">
+    <span
+      ref={wrapRef}
+      className="relative inline-flex items-center group"
+      onMouseEnter={() => {
+        setDismissed(false);
+        align();
+      }}
+      onMouseLeave={() => setDismissed(false)}
+      onFocus={() => {
+        setDismissed(false);
+        align();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') setDismissed(true);
+      }}
+    >
       <button
         type="button"
-        aria-label={text}
+        aria-label={label ? `More information about ${label}` : 'More information'}
+        aria-describedby={tipId}
         className="w-4 h-4 rounded-full bg-slate-800 border border-slate-700 text-[10px] font-bold text-slate-300 hover:text-cyan-300 hover:border-cyan-500/60 focus:outline-none focus:border-cyan-400 flex items-center justify-center cursor-help leading-none"
       >
         ?
       </button>
       <span
+        id={tipId}
+        ref={tipRef}
         role="tooltip"
-        className="pointer-events-none opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150 absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 p-2.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px] font-normal normal-case leading-snug text-slate-200 shadow-2xl z-40 text-left"
+        style={{ transform: `translateX(calc(-50% + ${shift}px))` }}
+        className={`pointer-events-none opacity-0 ${
+          dismissed ? '' : 'group-hover:opacity-100 group-focus-within:opacity-100'
+        } transition-opacity duration-150 absolute left-1/2 w-60 max-w-[calc(100vw-2rem)] p-2.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px] font-normal normal-case leading-snug text-slate-200 shadow-2xl z-40 text-left ${
+          placement === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2'
+        }`}
       >
         {text}
       </span>
@@ -1056,18 +1194,23 @@ function InputField({
   onChange: (val: string) => void;
   placeholder?: string;
 }) {
+  const id = useId();
+  const tipId = useId();
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-1">
-        <label className="text-xs font-medium text-slate-300">{label}</label>
-        {tooltip && <InfoTooltip text={tooltip} />}
+        <label htmlFor={id} className="text-xs font-medium text-slate-300">
+          {label}
+        </label>
+        {tooltip && <InfoTooltip text={tooltip} label={label} id={tipId} />}
       </div>
       <input
+        id={id}
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        title={tooltip}
+        aria-describedby={tooltip ? tipId : undefined}
         className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
       />
     </div>
@@ -1088,17 +1231,22 @@ function ColorField({
   value: string;
   onChange: (val: string) => void;
 }) {
+  const id = useId();
+  const tipId = useId();
   return (
     <div>
       <div className="flex items-center gap-1 mb-1">
-        <label className="text-[11px] font-medium text-slate-300">{label}</label>
-        {tooltip && <InfoTooltip text={tooltip} />}
+        <label htmlFor={id} className="text-[11px] font-medium text-slate-300">
+          {label}
+        </label>
+        {tooltip && <InfoTooltip text={tooltip} label={label} id={tipId} />}
       </div>
       <input
+        id={id}
         type="color"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        title={tooltip}
+        aria-describedby={tooltip ? tipId : undefined}
         className="w-full h-8 bg-slate-950 border border-slate-800 rounded-lg cursor-pointer p-0.5"
       />
     </div>
