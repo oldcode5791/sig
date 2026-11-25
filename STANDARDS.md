@@ -1,103 +1,118 @@
-# Coding Standards — the-lal.net projects
+# Coding & Design Standard — the-lal.net projects
 
-Shared standards for every project under `~/projects`. Copies of this file live in each project root. If a project has its own `AGENTS.md`, `CLAUDE.md`, `PROJECT_SPEC.md` or `README.md` that conflicts with this file, the project file wins.
+The single shared standard for every project under `~/projects`. Copies live in each project root. If a project has its own `AGENTS.md`, `CLAUDE.md`, `PROJECT_SPEC.md` or `README.md` that conflicts with this file, the project file wins.
 
 ---
 
-## 1. Stack and tooling
+## 1. Core philosophy
 
-- **Frontend:** React 19 + TypeScript + Vite. Tailwind CSS v4 via `@import "tailwindcss";` in `src/index.css` and the `@tailwindcss/vite` plugin.
-- **Hosting:** Cloudflare Workers with static assets (`wrangler.jsonc`, `assets.directory: "./dist"`, `not_found_handling: "single-page-application"`). Custom domains are attached in the Cloudflare dashboard, not in the repo.
+- **Zero-server privacy sandbox.** Parsing, image transcoding, PDF work and HTML compilation run in browser memory. No uploads and no telemetry.
+- **Everyday-user first.** Every input, slider, toggle and button has a plain-English tooltip (see section 3).
+- **No personal data in public repos.** Use sample or placeholder data (for example Starfleet-themed names). Squash or clean history before a repo is made public.
+
+## 2. Stack and tooling
+
+- **Frontend:** React 19 + TypeScript (`strict`) + Vite. Tailwind CSS v4 via `@import "tailwindcss";` in `src/index.css` and the `@tailwindcss/vite` plugin. Vanilla TypeScript is acceptable for very small tools. `app-showcase` uses Astro.
+- **Hosting.** Choose one per project and record it in the fleet inventory (section 10):
+  - **Cloudflare Workers with static assets:** `wrangler.jsonc` with `assets.directory: "./dist"` and `not_found_handling: "single-page-application"`, deployed with `npx wrangler deploy`.
+  - **Cloudflare Pages:** no `wrangler.jsonc`, deployed from the Git repo.
+  - Custom domains are attached in the Cloudflare dashboard, not in the repo.
 - **Lint:** `oxlint`. Keep it at 0 warnings and 0 errors.
-- **Standard npm scripts** (use these names so every project behaves the same):
+- **Standard npm scripts** (same names everywhere):
 
   ```bash
   npm run dev       # Vite dev server
   npm run build     # tsc -b && vite build
   npm run lint      # oxlint
-  npm run deploy    # npm run build && wrangler deploy
+  npm run deploy    # npm run build && wrangler deploy (Workers projects)
   ```
 
   Add `typecheck` and `test` scripts when a project has them.
-- **Release gate:** `npm run lint && npm run build` must pass before a change is considered done.
-- **TypeScript:** `strict` mode on. Use `import type` for type-only imports.
+- **Release gate:** `npm run lint && npm run build` must pass before a change is done.
 
-## 2. Design and brand
+## 3. Design and brand
 
-- **Palette:** dark slate base (`bg-slate-950`, `bg-slate-900/70`, `border-slate-800`) with a cyan accent (`cyan-400` / `cyan-500`). Emerald is for "safe / zero tracking" badges, amber for warnings, rose for errors.
-- **Mobile-first.** No horizontal overflow at 390px wide. Check 320px and 375px as well.
-- **Tooltips:** every input, control and action that a non-expert might not understand gets a plain-English `InfoTooltip` (the "?" badge). Use the shared `InfoTooltip` component, not a copy.
-- **Avoid duplicate tooltips.** Do not also set a `title` attribute on a control that already has an `InfoTooltip`. Use `title` only on controls with no visible tooltip (for example tab buttons or export buttons).
-- **Zero tracking.** No analytics, pixels or third-party scripts unless the project spec explicitly allows them. Say so in the UI when processing happens locally.
-- **Brand links:** the "← App Showcase" link goes to `https://apps.the-lal.net`.
+- **Theme:** canvas `bg-slate-950`, cards `bg-slate-900` (or `bg-slate-900/70`), borders `border-slate-800`, accent `cyan-500` / `cyan-400`. Use emerald for "safe / zero tracking" badges, amber for warnings and rose for errors.
+- **Mobile-first.** No horizontal overflow at 390px wide. Also check 320px and 375px.
+- **Tooltips.** Every input, control and action that a non-expert might not understand gets a plain-English `InfoTooltip` (the "?" badge). Use the shared `InfoTooltip` component, not a copy.
+- **No duplicate tooltips.** Don't also set a `title` attribute on a control that already has an `InfoTooltip`. Use `title` on controls with no visible tooltip, such as tab buttons and export buttons.
+- **Favicon.** A 64×64 slate and cyan SVG. Add a `?v=2` cache-buster to the link so updates show.
+- **SEO and social.** Meta description under 160 characters, a canonical URL, and an OG image at 1200×630.
+- **Zero tracking.** No analytics, pixels or third-party scripts unless the project spec allows them. Say in the UI when processing is local.
+- **Brand links.** The "← App Showcase" link goes to `https://apps.the-lal.net`.
 
-## 3. Accessibility (WCAG 2.2 AA is the target)
+## 4. Accessibility (WCAG 2.2 AA is the target)
 
-- **Labels:** every form control has an accessible name. Link `<label htmlFor>` to the input, using `useId()` for generated IDs. Do not use a `<label>` that wraps no control. Use a `<span>` instead.
-- **Descriptions:** link help text with `aria-describedby`. Do not leave it only in `title`.
-- **Groups:** a set of related buttons (for example layout choices) gets `role="group"` and `aria-labelledby`.
-- **Toggles:** a button that switches a mode on or off gets `aria-pressed`.
-- **Tabs:** use `role="tablist"`, `role="tab"` (with `aria-selected`, `aria-controls`, and roving `tabIndex`) and `role="tabpanel"`. Support Left/Right/Home/End keys.
-- **Status messages:** toasts and save confirmations go in an always-mounted `role="status"` / `aria-live="polite"` container. The container exists before its text changes.
-- **File inputs:** visually hidden with `sr-only`, not `hidden`, so they stay keyboard reachable. Show a `focus-within` ring on the wrapping label.
-- **Focus:** keep a visible focus indicator. Do not remove outlines without a replacement. The global `:focus-visible` rule in `index.css` is the baseline.
-- **Contrast:** body text is at least `slate-400` on dark backgrounds. Do not use `slate-500` for small text or interactive elements.
+- **Labels.** Every form control has an accessible name. Link `<label htmlFor>` to the input, with `useId()` for generated IDs. Don't use a `<label>` that wraps no control. Use a `<span>` instead.
+- **Descriptions.** Link help text with `aria-describedby`. Don't leave it only in `title`.
+- **Groups.** Related buttons (for example layout choices) get `role="group"` and `aria-labelledby`.
+- **Toggles.** A button that switches a mode on or off gets `aria-pressed`.
+- **Tabs.** `role="tablist"`, `role="tab"` (with `aria-selected`, `aria-controls` and roving `tabIndex`) and `role="tabpanel"`. Support Left, Right, Home and End keys.
+- **Status messages.** Toasts and save confirmations go in an always-mounted `role="status"` / `aria-live="polite"` container.
+- **File inputs.** Visually hidden with `sr-only`, not `hidden`, so they stay keyboard reachable. Show a `focus-within` ring on the wrapping label.
+- **Focus.** Keep a visible focus indicator. The global `:focus-visible` rule in `index.css` is the baseline.
+- **Contrast.** Body text is at least `slate-400` on dark backgrounds. Don't use `slate-500` for small text or interactive elements.
 - **Tooltips** dismiss with Escape and stay inside the viewport.
 
-## 4. Components and structure
+## 5. Components and structure
 
-- Put reusable pieces in `src/components/`, and put hooks in `src/hooks/`. Keep the top-level `App.tsx` as a thin shell where possible.
-- Components that repeat (text fields, color pickers) should be data-driven from config arrays rather than copy-pasted blocks.
-- Use one export style per module. Prefer named exports for components, and keep a single default export only where the entry point requires it.
-- Keep shared constants (such as limits and brand URLs) in one place rather than repeating them.
+- Reusable pieces go in `src/components/`, hooks in `src/hooks/`. Keep `App.tsx` a thin shell where possible.
+- Repeated components (text fields, colour pickers) are data-driven from config arrays, not copy-pasted.
+- One export style per module. Prefer named exports for components.
+- Shared constants (limits, brand URLs) live in one place.
+- Split a component file once it passes about 400 lines.
 
-## 5. Privacy and security
+## 6. Privacy and security
 
-- **Never commit secrets.** `.env*`, `.dev.vars` and any `*.secrets/` directory must be in `.gitignore`.
+- **No secrets in the repo.** `.env*`, `.dev.vars` and any `*.secrets/` directory must be in `.gitignore`.
 - **Never log personal data** (emails, phone numbers, uploaded images) to the console or to a server.
-- **Untrusted text** (anything a user types that is displayed or stored) is escaped or sanitized before it reaches HTML or storage. Use the project's sanitizer where one exists.
-- **Validate URLs** before emitting them into HTML. Allow `https://` (and `data:image/` for images only). Reject `javascript:` and relative paths that could resolve oddly.
+- **Untrusted text** (anything a user types that is shown or stored) is escaped or sanitized before it reaches HTML or storage. Use the project's sanitizer where one exists.
+- **Validate URLs** before writing them into HTML. Allow `https://`, and `data:image/` for images only. Reject `javascript:` and odd relative paths.
 - **Client-side first.** If a feature can run in the browser, keep it there, and say so in the UI.
 
-## 6. Code comments
+## 7. Code comments
 
-- Comment *why*, not *what*. Do not restate the next line.
-- Give each exported function, component or non-obvious rule a short JSDoc or block comment. Explain security rules and edge cases in particular.
+- Comment *why*, not *what*. Don't restate the next line.
+- Give each exported function, component or non-obvious rule a short block comment. Explain security rules and edge cases especially.
 - Keep copyright headers and `LICENSE` text intact.
-- Leave no commented-out code and no stale TODOs without a backlog reference.
+- No commented-out code, and no TODOs without a backlog reference.
 
-## 7. Persistence
+## 8. Persistence
 
-- Browser storage keys are namespaced and versioned, for example `the_lal_<app>_<thing>_v1`. Do not rename a key once users have data under it.
+- Browser storage keys are namespaced and versioned, for example `the_lal_<app>_<thing>_v1`. Don't rename a key once users have data under it.
 - Parse stored data defensively: check its shape and discard bad entries rather than trusting `JSON.parse`.
 - Wrap `localStorage` writes in `try/catch` and tell the user when a save fails.
 
-## 8. Workflow
+## 9. Workflow and versioning
 
 - **Read the project docs first** (`AGENTS.md`, `CLAUDE.md`, `PROJECT_SPEC.md`, `README.md`, whichever exist).
 - **Small, focused changes.** One concern per commit.
-- **Do not push, deploy or change infrastructure** unless the user asks. Local commits are fine when asked to commit.
-- **Commit messages.** Start every commit with the version it belongs to: `vX.Y.Z: <summary>`. Use `docs:` / `chore:` only for changes that don't need a version bump (see Versioning).
+- **Don't push, deploy or change infrastructure** unless asked. Local commits are fine when asked to commit.
+- **Versioning.** Every project uses SemVer `MAJOR.MINOR.PATCH` in `package.json`.
+  - **One change, one version.** Each change gets its own bump, and its commit starts `vX.Y.Z: <summary>`. Don't batch changes under one version.
+  - **PATCH** for fixes and copy or style tweaks. **MINOR** for new features or visible behaviour. **MAJOR** for breaking changes such as renamed storage keys, changed URLs or changed data formats.
+  - **Bump with** `npm version X.Y.Z --no-git-tag-version`, which updates the lockfile too. **New projects start at `0.1.0`.**
+  - **Tags.** Annotate a tag for each deployed release: `git tag -a vX.Y.Z -m "vX.Y.Z: <summary>"`. Tags are rollback points.
+  - **Show the version in the UI.** Display it in the footer, read from `package.json` through Vite's `define` as `__APP_VERSION__`. Don't hard-code it.
+  - **Record it.** If the project has a changelog or spec, add an entry for each version.
+- **Docs-only changes** that don't alter behaviour use `docs:` and don't need a version bump.
+- **Verify.** Run the release gate before reporting work as done. For UI changes, check the page in a browser at mobile and desktop widths.
+- **Keep this file current.** When a standard changes, update this file and recopy it to each project.
 
-## 8a. Versioning (all projects)
+## 10. Fleet inventory
 
-- **Scheme.** Every project uses SemVer `MAJOR.MINOR.PATCH`, stored in `package.json`.
-- **One change, one version.** Each change gets its own bump, and its commit is `vX.Y.Z: <summary>`. Don't batch several changes under one version.
-- **Which part to bump:**
-  - **PATCH** for fixes, copy and style tweaks.
-  - **MINOR** for new features or user-visible behaviour.
-  - **MAJOR** for breaking changes, such as renamed storage keys, changed URLs, or changed data formats.
-- **How to bump.** `npm version X.Y.Z --no-git-tag-version`. This updates `package.json` and the lockfile together.
-- **New projects** start at `0.1.0`.
-- **Tags.** Annotate a git tag for each deployed release: `git tag -a vX.Y.Z -m "vX.Y.Z: <summary>"`. Tags are the rollback points.
-- **Show the version in the UI.** Display it in the footer, read from `package.json` through Vite's `define` as `__APP_VERSION__`. Don't hard-code version numbers in the UI.
-- **Record it.** If the project has a changelog or spec (for example `PROJECT_SPEC.md`), add an entry for each version.
+Record each project's hosting here. Update it when a project's hosting changes.
 
-Projects that don't follow this yet should be brought into line before their next change.
-- **Verify.** Run the release gate before reporting work as done. For UI changes, also check the page in a browser at mobile and desktop widths.
-- **Keep the docs current.** When a standard changes, update this file and recopy it to each project.
+| Project | Domain | Hosting | Notes |
+|---|---|---|---|
+| `sig` | `sig.the-lal.net` | Workers (static assets) | Custom domain set in dashboard |
+| `holodeck-replicator` | `replicator.the-lal.net` | Pages per design; repo now has Workers config | Confirm which is live |
+| `pdf-signer` | `pdf-signer.the-lal.net` | Pages | Repo has no `wrangler.jsonc` |
+| `app-showcase` | `apps.the-lal.net` | Pages | Astro catalog |
+| `promenade` | `promenade.the-lal.net`, `thepromena.de` | Workers | Has D1 database |
+| `ten-forward` | `ten-forward` (domain to confirm) | Workers | |
 
-## 9. Known gaps (track in each project's backlog)
+## 11. Known gaps
 
-- Some projects have large single-file components. Split them when they pass about 400 lines.
-- Not every project has tests yet. Add a test runner when a project's logic grows beyond simple UI.
+- Some projects have large single-file components. Split them past about 400 lines.
+- Not every project has tests yet. Add a test runner when logic grows beyond simple UI.
