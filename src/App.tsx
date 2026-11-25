@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   type SignatureData,
   DEFAULT_SIGNATURE,
@@ -77,11 +77,54 @@ export function App() {
   // Compile production HTML table (without blocked-image placeholders)
   const compiledHtml = useMemo(() => compileSignatureHtml(data, false), [data]);
 
-  // Compile live preview HTML table (honors the blocked-image simulation toggle)
+  // Compile live preview HTML table. Reuse the production output when the
+  // blocked-image simulation is off so we never compile the same signature twice.
   const previewHtml = useMemo(
-    () => compileSignatureHtml(data, simulateBlockedImages),
-    [data, simulateBlockedImages]
+    () => (simulateBlockedImages ? compileSignatureHtml(data, true) : compiledHtml),
+    [compiledHtml, data, simulateBlockedImages]
   );
+
+  // Measured height of the sandboxed preview frame so it grows to fit the signature
+  const previewFrameRef = useRef<HTMLIFrameElement>(null);
+  const [previewHeight, setPreviewHeight] = useState(320);
+
+  // Self-contained document rendered inside the preview iframe. Kept in its own
+  // document so the app's own CSS (Tailwind preflight resets) never leaks into
+  // the signature and changes how it would actually look in an email client.
+  const previewDoc = useMemo(() => {
+    const isLight = previewTheme === 'light';
+    const bg = isLight ? '#ffffff' : '#020617';
+    const fg = isLight ? '#1e293b' : '#e2e8f0';
+    return `<!doctype html><html><head><meta charset="utf-8"><base target="_blank">
+<style>
+  html,body{margin:0}
+  body{background:${bg};color:${fg};padding:24px;font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  #sig{display:inline-block;max-width:100%}
+</style></head><body><div id="sig">${previewHtml}</div>
+<script>
+  function report(){
+    var h = document.documentElement.scrollHeight;
+    parent.postMessage({ type: 'sig-preview-height', height: h }, '*');
+  }
+  window.addEventListener('load', report);
+  report();
+  if (window.ResizeObserver) new ResizeObserver(report).observe(document.body);
+</script></body></html>`;
+  }, [previewHtml, previewTheme]);
+
+  // Grow the preview frame to match the signature's real rendered height
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== previewFrameRef.current?.contentWindow) return;
+      const payload = event.data as { type?: string; height?: number } | null;
+      if (payload?.type === 'sig-preview-height' && typeof payload.height === 'number') {
+        setPreviewHeight(Math.max(120, payload.height));
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
 
   // Calculate exact UTF-8 byte footprint and warn before reaching Gmail's 102 KB message clip threshold
   const htmlByteSize = useMemo(() => new Blob([compiledHtml]).size, [compiledHtml]);
@@ -817,10 +860,16 @@ export function App() {
                   Kind regards,
                 </p>
 
-                {/* Compiled Signature Table Output */}
-                <div
-                  className="overflow-x-auto"
-                  dangerouslySetInnerHTML={{ __html: previewHtml }}
+                {/* Compiled Signature Table Output — rendered in an isolated
+                    document so app styles cannot distort the result */}
+                <iframe
+                  ref={previewFrameRef}
+                  title="Email signature preview"
+                  srcDoc={previewDoc}
+                  sandbox="allow-popups allow-popups-to-escape-sandbox allow-scripts"
+                  scrolling="no"
+                  className="w-full border-0"
+                  style={{ height: previewHeight }}
                 />
               </div>
             </div>
