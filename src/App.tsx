@@ -126,9 +126,16 @@ export function App() {
     return () => window.removeEventListener('message', onMessage);
   }, []);
 
-  // Calculate exact UTF-8 byte footprint and warn before reaching Gmail's 102 KB message clip threshold
+  // Gmail caps the signature box at roughly 10,000 characters, so warn well before that
+  const signatureChars = compiledHtml.length;
+  const overSignatureLimit = signatureChars > 10000;
+
+  // Base64 data: URIs are stripped or blocked by Gmail and most Outlook versions
+  const hasEmbeddedImage =
+    data.avatarUrl.trim().startsWith('data:') || data.bannerUrl.trim().startsWith('data:');
+
+  // Exact UTF-8 byte footprint, shown as a secondary stat in the size readout
   const htmlByteSize = useMemo(() => new Blob([compiledHtml]).size, [compiledHtml]);
-  const gmailClipRisk = htmlByteSize > 90000;
 
   // Generic state updater for individual SignatureData fields
   const updateField = <K extends keyof SignatureData>(key: K, value: SignatureData[K]) => {
@@ -170,7 +177,9 @@ export function App() {
           : canvas.toDataURL('image/jpeg', 0.86);
 
         updateField(target, dataUrl);
-        showToast(`Compressed image locally (${Math.round(dataUrl.length / 1024)} KB)`);
+        showToast(
+          `Image embedded locally (${Math.round(dataUrl.length / 1024)} KB) — some clients strip embedded images; a hosted URL is safer.`
+        );
       };
       img.src = reader.result as string;
     };
@@ -792,16 +801,30 @@ export function App() {
               )}
               <span
                 className={`inline-flex items-center gap-1 text-[11px] font-mono px-2.5 py-1 rounded-md border ${
-                  gmailClipRisk
+                  overSignatureLimit
                     ? 'bg-rose-500/10 border-rose-500/40 text-rose-300'
                     : 'bg-slate-950 border-slate-800 text-slate-400'
                 }`}
               >
-                {(htmlByteSize / 1024).toFixed(1)} KB
-                <InfoTooltip text="Total signature code size. Gmail clips emails larger than 102 KB—keep this well below 90 KB." />
+                {signatureChars.toLocaleString()} chars
+                <InfoTooltip
+                  text={`Total signature code size: ${signatureChars.toLocaleString()} characters (~${(
+                    htmlByteSize / 1024
+                  ).toFixed(1)} KB). Gmail caps the signature box at about 10,000 characters—keep it below that.`}
+                />
               </span>
             </div>
           </div>
+
+          {/* Persistent warning when an image is embedded as base64 rather than hosted */}
+          {hasEmbeddedImage && (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200 text-xs px-3.5 py-2.5 leading-relaxed">
+              <strong className="font-semibold">Embedded image detected:</strong> your
+              signature contains a locally embedded (base64) image. Gmail and most Outlook
+              versions strip or block these when pasted. For the most reliable result, host
+              the image somewhere and paste its HTTPS URL instead.
+            </div>
+          )}
 
           {/* Interactive Email Client Viewport or Raw HTML Inspector */}
           {outputTab === 'preview' ? (
@@ -816,11 +839,15 @@ export function App() {
                     New Message — {previewTheme === 'light' ? 'Light Client' : 'Dark Mode Client'}
                   </span>
                 </div>
-                {gmailClipRisk && (
+                {overSignatureLimit ? (
                   <span className="text-rose-400 font-medium">
-                    Warning: Large embedded image may trigger Gmail clipping
+                    Warning: signature exceeds Gmail&apos;s 10,000 character limit
                   </span>
-                )}
+                ) : hasEmbeddedImage ? (
+                  <span className="text-amber-400 font-medium">
+                    Warning: embedded image may be stripped by some clients
+                  </span>
+                ) : null}
               </div>
 
               {/* Simulated Message Body */}
