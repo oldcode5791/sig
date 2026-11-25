@@ -48,30 +48,51 @@ export function App() {
   // Transient toast feedback banner message
   const [toast, setToast] = useState<string | null>(null);
 
-  // Hydrate saved presets from localStorage on initial mount
+  // Hydrate saved presets from localStorage on initial mount, discarding any
+  // malformed entries so a corrupt store cannot crash the app later.
   const [profiles, setProfiles] = useState<SavedProfile[]>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
+      if (!raw) return [];
+      const parsed: unknown = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(
+        (p): p is SavedProfile =>
+          typeof p === 'object' &&
+          p !== null &&
+          typeof (p as SavedProfile).id === 'string' &&
+          typeof (p as SavedProfile).label === 'string' &&
+          typeof (p as SavedProfile).data === 'object' &&
+          (p as SavedProfile).data !== null
+      );
     } catch {
       return [];
     }
   });
   const [profileName, setProfileName] = useState('');
 
-  // Sync saved presets back to localStorage whenever the list changes
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles));
-    } catch {
-      // Ignore browser storage quota errors in private/incognito sessions
-    }
-  }, [profiles]);
-
-  // Displays a temporary floating notification banner for 3.2 seconds
+  // Displays a temporary floating notification banner for 3.2 seconds,
+  // replacing any banner already on screen so timers cannot overlap.
+  const toastTimer = useRef<number | undefined>(undefined);
   const showToast = (msg: string) => {
     setToast(msg);
-    setTimeout(() => setToast(null), 3200);
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), 3200);
+  };
+
+  // Clear the pending toast timer if the component unmounts
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+
+  // Writes presets to localStorage and reports quota/private-mode failures
+  // instead of silently losing the user's saved profiles.
+  const persistProfiles = (next: SavedProfile[]): boolean => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return true;
+    } catch {
+      showToast('Could not save to browser storage — it may be full or blocked in private mode.');
+      return false;
+    }
   };
 
   // Compile production HTML table (without blocked-image placeholders)
@@ -155,24 +176,38 @@ export function App() {
     if (!file) return;
 
     const reader = new FileReader();
+    reader.onerror = () => showToast('Could not read that image file.');
     reader.onload = () => {
       const img = new Image();
+      img.onerror = () => showToast('Could not decode that image file.');
       img.onload = () => {
         // Downscale proportionally if the source image exceeds maxWidth
         const scale = Math.min(1, maxWidth / img.width);
-        const w = Math.round(img.width * scale);
-        const h = Math.round(img.height * scale);
+        const w = Math.round(img.width * scale) || maxWidth;
+        const h = Math.round(img.height * scale) || maxWidth;
 
         const canvas = document.createElement('canvas');
         canvas.width = w;
         canvas.height = h;
         const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+        if (!ctx) {
+          showToast('Image canvas is unavailable in this browser.');
+          return;
+        }
+
+        // Formats that support transparency stay as PNG; others are flattened
+        // onto white first (JPEG has no alpha, so transparent pixels go black otherwise).
+        const supportsAlpha =
+          file.type === 'image/png' ||
+          file.type === 'image/webp' ||
+          file.type === 'image/gif';
+        if (!supportsAlpha) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, w, h);
+        }
         ctx.drawImage(img, 0, 0, w, h);
 
-        // Preserve transparency for PNGs; use 86% quality JPEG for photos/banners
-        const isPng = file.type === 'image/png';
-        const dataUrl = isPng
+        const dataUrl = supportsAlpha
           ? canvas.toDataURL('image/png')
           : canvas.toDataURL('image/jpeg', 0.86);
 
@@ -196,10 +231,12 @@ export function App() {
   const handleCopyRichText = async () => {
     try {
       const htmlBlob = new Blob([compiledHtml], { type: 'text/html' });
-      const textBlob = new Blob(
-        [`${data.fullName}\n${data.jobTitle} — ${data.companyName}\n${data.email} | ${data.mobile || data.phone}`],
-        { type: 'text/plain' }
-      );
+      const textLines = [
+        data.fullName,
+        [data.jobTitle, data.companyName].filter(Boolean).join(' — '),
+        [data.email, data.mobile || data.phone].filter(Boolean).join(' | '),
+      ].filter(Boolean);
+      const textBlob = new Blob([textLines.join('\n')], { type: 'text/plain' });
       await navigator.clipboard.write([
         new ClipboardItem({
           'text/html': htmlBlob,
@@ -216,8 +253,12 @@ export function App() {
    * Copies raw HTML table source code for Exchange/M365 transport rules or HTML-aware mail clients.
    */
   const handleCopyRawHtml = async () => {
-    await navigator.clipboard.writeText(compiledHtml);
-    showToast('Copied raw table HTML to clipboard.');
+    try {
+      await navigator.clipboard.writeText(compiledHtml);
+      showToast('Copied raw table HTML to clipboard.');
+    } catch {
+      showToast('Clipboard access was blocked — use "Download .html File" instead.');
+    }
   };
 
   /**
@@ -245,9 +286,22 @@ export function App() {
       label,
       data: { ...data },
     };
-    setProfiles((prev) => [newEntry, ...prev]);
+    const next = [newEntry, ...profiles];
+    if (!persistProfiles(next)) return;
+    setProfiles(next);
     setProfileName('');
     showToast(`Saved preset "${label}" in browser storage.`);
+  };
+
+  /**
+   * Removes a saved preset from browser storage, reporting failures instead of
+   * optimistically dropping it from the on-screen list.
+   */
+  const handleDeleteProfile = (id: string, label: string) => {
+    const next = profiles.filter((p) => p.id !== id);
+    if (!persistProfiles(next)) return;
+    setProfiles(next);
+    showToast(`Deleted preset "${label}" from browser storage.`);
   };
 
   return (
@@ -691,7 +745,11 @@ export function App() {
                 <InfoTooltip text="Save multiple signatures (e.g. Work, Personal, Side Business) right inside this browser—nothing is sent to the cloud." />
               </div>
               <button
-                onClick={() => setData(DEFAULT_SIGNATURE)}
+                onClick={() => {
+                  if (window.confirm('Reset all fields to the default sample signature? Unsaved changes will be lost.')) {
+                    setData(DEFAULT_SIGNATURE);
+                  }
+                }}
                 title="Reset all fields back to the default Starfleet sample signature"
                 className="text-[11px] text-slate-400 hover:text-white cursor-pointer"
               >
@@ -734,7 +792,7 @@ export function App() {
                       {p.label}
                     </button>
                     <button
-                      onClick={() => setProfiles((prev) => prev.filter((item) => item.id !== p.id))}
+                      onClick={() => handleDeleteProfile(p.id, p.label)}
                       className="text-slate-500 hover:text-rose-400 cursor-pointer ml-1"
                       title={`Delete "${p.label}" preset from browser storage`}
                     >
