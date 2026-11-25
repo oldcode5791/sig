@@ -176,8 +176,6 @@ export function compileSignatureHtml(data: SignatureData, blockImages = false): 
 
   // Combine Direct/Office Phone and Mobile onto a single compact pipe-delimited row
   const phoneItems: string[] = [];
-  // Only create a tap-to-call link when the value actually contains digits,
-  // otherwise the number is shown as plain text (e.g. "Subspace Channel 04").
   const phoneEntry = (label: string, raw: string) => {
     const value = esc(raw.trim());
     const tel = value.replace(/[^+\d]/g, '');
