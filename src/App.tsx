@@ -37,18 +37,14 @@ const FONT_OPTIONS = [
  * with contextual plain-English tooltips on every field and action for everyday users.
  */
 export function App() {
-  // Active form state initialized to the Starfleet placeholder preset
   const [data, setData] = useState<SignatureData>(DEFAULT_SIGNATURE);
 
-  // Active editor tab ('details' = Identity, 'branding' = Visuals, 'extras' = Quote & Legal)
   const [activeTab, setActiveTab] = useState<'details' | 'branding' | 'extras'>('details');
 
-  // Simulator viewport controls (light/dark canvas background & blocked-image testing)
   const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>('light');
   const [simulateBlockedImages, setSimulateBlockedImages] = useState(false);
   const [outputTab, setOutputTab] = useState<'preview' | 'html'>('preview');
 
-  // Transient toast feedback banner message
   const [toast, setToast] = useState<string | null>(null);
 
   // Hydrate saved presets from localStorage on initial mount, discarding any
@@ -108,7 +104,6 @@ export function App() {
     [compiledHtml, data, simulateBlockedImages]
   );
 
-  // Measured height of the sandboxed preview frame so it grows to fit the signature
   const previewFrameRef = useRef<HTMLIFrameElement>(null);
   const [previewHeight, setPreviewHeight] = useState(320);
 
@@ -137,7 +132,6 @@ export function App() {
 </script></body></html>`;
   }, [previewHtml, previewTheme]);
 
-  // Grow the preview frame to match the signature's real rendered height
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.source !== previewFrameRef.current?.contentWindow) return;
@@ -158,10 +152,8 @@ export function App() {
   const hasEmbeddedImage =
     data.avatarUrl.trim().startsWith('data:') || data.bannerUrl.trim().startsWith('data:');
 
-  // Exact UTF-8 byte footprint, shown as a secondary stat in the size readout
   const htmlByteSize = useMemo(() => new Blob([compiledHtml]).size, [compiledHtml]);
 
-  // Generic state updater for individual SignatureData fields
   const updateField = <K extends keyof SignatureData>(key: K, value: SignatureData[K]) => {
     setData((prev) => ({ ...prev, [key]: value }));
   };
@@ -310,7 +302,6 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* Top Sticky Navigation Bar */}
       <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -343,7 +334,6 @@ export function App() {
         </div>
       </header>
 
-      {/* Floating Toast Status Banner */}
       {toast && (
         <div className="fixed bottom-5 right-5 z-50 bg-slate-900 border border-cyan-500/50 text-cyan-200 px-4 py-3 rounded-xl shadow-2xl text-sm max-w-md">
           {toast}
@@ -354,7 +344,6 @@ export function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Editor Tabs & Local Presets */}
         <section className="lg:col-span-5 space-y-5">
-          {/* Step Switcher Tabs */}
           <div className="grid grid-cols-3 gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl">
             {(
               [
@@ -905,7 +894,6 @@ export function App() {
           {/* Interactive Email Client Viewport or Raw HTML Inspector */}
           {outputTab === 'preview' ? (
             <div className="rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
-              {/* Mock Mail Window Title Bar */}
               <div className="bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex items-center justify-between text-xs text-slate-400">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-rose-500/70" />
@@ -926,7 +914,6 @@ export function App() {
                 ) : null}
               </div>
 
-              {/* Simulated Message Body */}
               <div
                 className={`p-6 sm:p-8 transition-colors min-h-[320px] ${
                   previewTheme === 'light'

@@ -150,13 +150,11 @@ function getBorderRadius(shape: AvatarShape, width: number): string {
  * @param blockImages - When true, replaces <img> tags with dashed placeholder boxes to preview blocked-image states
  */
 export function compileSignatureHtml(data: SignatureData, blockImages = false): string {
-  // Sanitize global typography and hex color variables
   const font = esc(data.fontFamily);
   const accent = esc(data.accentColor);
   const text = esc(data.textColor);
   const muted = esc(data.mutedColor);
 
-  // Format primary identity header fields
   const name = esc(data.fullName.trim() || 'Your Name');
   const titleParts = [data.jobTitle.trim(), data.department.trim()]
     .filter(Boolean)
@@ -166,7 +164,6 @@ export function compileSignatureHtml(data: SignatureData, blockImages = false): 
   // Build individual contact rows dynamically so empty fields leave zero blank table rows
   const contactRows: string[] = [];
 
-  // Email row with mailto: link
   if (data.email.trim()) {
     const email = esc(data.email.trim());
     contactRows.push(
@@ -194,7 +191,6 @@ export function compileSignatureHtml(data: SignatureData, blockImages = false): 
     );
   }
 
-  // Website row with normalized external URL
   if (data.website.trim()) {
     const href = esc(normalizeUrl(data.website));
     const label = esc(displayUrl(data.website));
@@ -203,14 +199,12 @@ export function compileSignatureHtml(data: SignatureData, blockImages = false): 
     );
   }
 
-  // Physical location / postal address row
   if (data.address.trim()) {
     contactRows.push(
       `<tr><td style="padding:2px 0;font-family:${font};font-size:12px;line-height:17px;color:${muted};">${esc(data.address.trim())}</td></tr>`
     );
   }
 
-  // Business/tax identifier row when provided (label is user-editable)
   if (data.abn.trim()) {
     contactRows.push(
       `<tr><td style="padding:2px 0;font-family:${font};font-size:11px;line-height:16px;color:${muted};">${esc(data.taxLabel.trim() || 'ABN')}: ${esc(data.abn.trim())}</td></tr>`
@@ -258,7 +252,6 @@ export function compileSignatureHtml(data: SignatureData, blockImages = false): 
       : `<img src="${esc(normalizeImageSrc(data.avatarUrl))}" alt="${esc(data.fullName || 'Logo')}" width="${avatarW}"${avatarHeightAttr} style="display:block;width:${avatarW}px;max-width:${avatarW}px;height:auto;border:0;border-radius:${radius};" />`
     : '';
 
-  // Assemble the inner identity & contact sub-table
   const identityBlock = `
     <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;">
       <tr>
@@ -285,7 +278,6 @@ export function compileSignatureHtml(data: SignatureData, blockImages = false): 
     </table>
   `;
 
-  // Arrange outer table cells according to the selected layout template
   let mainBody = '';
 
   if (data.layout === 'classic-left' && hasAvatar) {
@@ -322,7 +314,6 @@ export function compileSignatureHtml(data: SignatureData, blockImages = false): 
     `;
   }
 
-  // Optional accented blockquote row with attribution
   const quoteHtml = (data.quoteText ?? '').trim()
     ? `<tr><td colspan="2" style="padding-top:12px;"><table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;max-width:520px;"><tr><td style="border-left:3px solid ${accent};padding:2px 0 2px 10px;font-family:${font};font-size:12px;font-style:italic;line-height:17px;color:${muted};">&ldquo;${esc(data.quoteText.trim())}&rdquo;${(data.quoteAuthor ?? '').trim() ? ` <span style="font-style:normal;font-weight:600;color:${text};">&mdash; ${esc(data.quoteAuthor.trim())}</span>` : ''}</td></tr></table></td></tr>`
     : '';
@@ -341,12 +332,10 @@ export function compileSignatureHtml(data: SignatureData, blockImages = false): 
         })()
       : '';
 
-  // Optional confidentiality / legal disclaimer footer separated by a subtle top border
   const disclaimerHtml = data.disclaimer.trim()
     ? `<tr><td colspan="2" style="padding-top:12px;border-top:1px solid #e2e8f0;font-family:${font};font-size:10px;line-height:14px;color:#64748b;max-width:540px;">${esc(data.disclaimer.trim())}</td></tr>`
     : '';
 
-  // Return complete self-contained HTML table markup
   return `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;font-family:${font};max-width:560px;">
   ${mainBody}
   ${quoteHtml}
