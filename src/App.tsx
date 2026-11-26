@@ -1120,13 +1120,22 @@ function InfoTooltip({
   const wrapRef = useRef<HTMLSpanElement>(null);
   const tipRef = useRef<HTMLSpanElement>(null);
   const [shift, setShift] = useState(0);
+  const [side, setSide] = useState<'top' | 'bottom'>(placement);
   const [open, setOpen] = useState(false);
 
+  // Flips the popover to the other side of its "?" when the preferred side has no room, so a tip
+  // near the top or bottom of the screen is not cut off, then nudges it back inside the left/right edges.
   const align = () => {
     const wrap = wrapRef.current;
     const tip = tipRef.current;
     if (!wrap || !tip) return;
     const rect = wrap.getBoundingClientRect();
+    const gap = 8;
+    const tipH = tip.offsetHeight;
+    const fitsAbove = rect.top - tipH - gap >= 0;
+    const fitsBelow = rect.bottom + tipH + gap <= window.innerHeight;
+    if (placement === 'top') setSide(fitsAbove || !fitsBelow ? 'top' : 'bottom');
+    else setSide(fitsBelow || !fitsAbove ? 'bottom' : 'top');
     const center = rect.left + rect.width / 2;
     const half = tip.offsetWidth / 2;
     const margin = 8;
@@ -1180,7 +1189,7 @@ function InfoTooltip({
         className={`pointer-events-none ${
           open ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
         } transition-opacity duration-150 absolute left-1/2 w-60 max-w-[calc(100vw-2rem)] p-2.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px] font-normal normal-case leading-snug text-slate-200 shadow-2xl z-40 text-left ${
-          placement === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2'
+          side === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2'
         }`}
       >
         {text}
