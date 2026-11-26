@@ -1120,7 +1120,7 @@ function InfoTooltip({
   const wrapRef = useRef<HTMLSpanElement>(null);
   const tipRef = useRef<HTMLSpanElement>(null);
   const [shift, setShift] = useState(0);
-  const [dismissed, setDismissed] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const align = () => {
     const wrap = wrapRef.current;
@@ -1136,27 +1136,38 @@ function InfoTooltip({
     else setShift(0);
   };
 
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
   return (
     <span
       ref={wrapRef}
       className="relative inline-flex items-center group"
-      onMouseEnter={() => {
-        setDismissed(false);
-        align();
-      }}
-      onMouseLeave={() => setDismissed(false)}
-      onFocus={() => {
-        setDismissed(false);
-        align();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') setDismissed(true);
-      }}
+      onMouseEnter={align}
+      onFocus={align}
     >
       <button
         type="button"
         aria-label={label ? `More information about ${label}` : 'More information'}
         aria-describedby={tipId}
+        aria-expanded={open}
+        onClick={() => {
+          align();
+          setOpen((o) => !o);
+        }}
         className="w-4 h-4 rounded-full bg-slate-800 border border-slate-700 text-[10px] font-bold text-slate-300 hover:text-cyan-300 hover:border-cyan-500/60 focus:outline-none focus:border-cyan-400 flex items-center justify-center cursor-help leading-none"
       >
         ?
@@ -1166,8 +1177,8 @@ function InfoTooltip({
         ref={tipRef}
         role="tooltip"
         style={{ transform: `translateX(calc(-50% + ${shift}px))` }}
-        className={`pointer-events-none opacity-0 ${
-          dismissed ? '' : 'group-hover:opacity-100 group-focus-within:opacity-100'
+        className={`pointer-events-none ${
+          open ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
         } transition-opacity duration-150 absolute left-1/2 w-60 max-w-[calc(100vw-2rem)] p-2.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px] font-normal normal-case leading-snug text-slate-200 shadow-2xl z-40 text-left ${
           placement === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2'
         }`}
